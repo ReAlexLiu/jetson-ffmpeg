@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+//Maximum size of the encoded buffers on the capture plane in bytes 
+#define NVMPI_ENC_CHUNK_SIZE 2*1024*1024
+
 typedef struct nvmpictx nvmpictx;
 
 typedef enum {
@@ -30,6 +33,7 @@ typedef struct _NVENCPARAM{
 	unsigned int qmax;
 	unsigned int qmin;
 	unsigned int hw_preset_type;
+	unsigned int vbv_buffer_size; //virtual buffer size of the encoder
 	
 } nvEncParam;
 
@@ -38,6 +42,8 @@ typedef struct _NVPACKET{
 	unsigned long payload_size;
 	unsigned char *payload;
 	unsigned long  pts;
+	//NVMPI_pkt pointer. used by encoder
+	void* privData;
 } nvPacket;
 
 typedef struct _NVFRAME{
@@ -51,6 +57,10 @@ typedef struct _NVFRAME{
 	time_t timestamp;
 }nvFrame;
 
+typedef struct _NVSIZE{
+	unsigned int width;
+	unsigned int height;
+}nvSize;
 
 
 typedef enum {
@@ -67,7 +77,7 @@ typedef enum {
 extern "C" {
 #endif
 
-	nvmpictx* nvmpi_create_decoder(nvCodingType codingType,nvPixFormat pixFormat);
+	nvmpictx* nvmpi_create_decoder(nvCodingType codingType,nvPixFormat pixFormat, nvSize resized);
 
 	int nvmpi_decoder_put_packet(nvmpictx* ctx,nvPacket* packet);
 
@@ -76,11 +86,15 @@ extern "C" {
 	int nvmpi_decoder_close(nvmpictx* ctx);
 
 	nvmpictx* nvmpi_create_encoder(nvCodingType codingType,nvEncParam * param);
-		
+	//add frame to encoder
 	int nvmpi_encoder_put_frame(nvmpictx* ctx,nvFrame* frame);
-
-	int nvmpi_encoder_get_packet(nvmpictx* ctx,nvPacket* packet);
-
+	//get filled packet from encoder
+	int nvmpi_encoder_get_packet(nvmpictx* ctx,nvPacket** packet);
+	//get empty packet with allocated buffer from encoder packet pool
+	int nvmpi_encoder_dqEmptyPacket(nvmpictx* ctx,nvPacket** packet);
+	//add empty packet with allocated buffer  to  encoder packet pool
+	void nvmpi_encoder_qEmptyPacket(nvmpictx* ctx,nvPacket* packet);
+	//close encoder
 	int nvmpi_encoder_close(nvmpictx* ctx);
 
 #ifdef __cplusplus
